@@ -17,12 +17,20 @@
 package com.google.mlkit.vision.demo.java.facedetector;
 
 import android.content.Context;
+import android.content.DialogInterface;
 import android.graphics.PointF;
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
+
+import android.media.MediaPlayer;
+import android.provider.Settings;
 import android.util.Log;
+import android.widget.Toast;
+
 import com.google.android.gms.tasks.Task;
 import com.google.mlkit.vision.common.InputImage;
 import com.google.mlkit.vision.demo.GraphicOverlay;
+import com.google.mlkit.vision.demo.java.FaceModel;
 import com.google.mlkit.vision.demo.java.VisionProcessorBase;
 import com.google.mlkit.vision.face.Face;
 import com.google.mlkit.vision.face.FaceDetection;
@@ -38,6 +46,7 @@ public class FaceDetectorProcessor extends VisionProcessorBase<List<Face>> {
   private static final String TAG = "FaceDetectorProcessor";
 
   private final FaceDetector detector;
+  private FaceModel faceModel;
 
   public FaceDetectorProcessor(Context context) {
     this(
@@ -48,10 +57,14 @@ public class FaceDetectorProcessor extends VisionProcessorBase<List<Face>> {
             .build());
   }
 
+  private Context context;
   public FaceDetectorProcessor(Context context, FaceDetectorOptions options) {
     super(context);
-    Log.v(MANUAL_TESTING_LOG, "Face detector options: " + options);
+    this.context = context;
     detector = FaceDetection.getClient(options);
+    faceModel = new FaceModel();
+    faceModel.addSubscriber(() -> showDialog());
+    faceModel.addSubscriber(() -> sendBeep());
   }
 
   @Override
@@ -67,73 +80,35 @@ public class FaceDetectorProcessor extends VisionProcessorBase<List<Face>> {
 
   @Override
   protected void onSuccess(@NonNull List<Face> faces, @NonNull GraphicOverlay graphicOverlay) {
+    //Geht derzeit nur bei einem Gesicht
     for (Face face : faces) {
-      graphicOverlay.add(new FaceGraphic(graphicOverlay, face));
-      logExtrasForTesting(face);
+      graphicOverlay.add(new FaceGraphic(graphicOverlay, face, faceModel));
+
+      if(face != null) {
+        if(face.getLeftEyeOpenProbability() != null && face.getRightEyeOpenProbability() != null) {
+
+          faceModel.updateEyeOpenProbabilities(face.getLeftEyeOpenProbability(),
+                  face.getRightEyeOpenProbability());
+        }
+      }
     }
   }
 
-  private static void logExtrasForTesting(Face face) {
-    if (face != null) {
-      Log.v(MANUAL_TESTING_LOG, "face bounding box: " + face.getBoundingBox().flattenToString());
-      Log.v(MANUAL_TESTING_LOG, "face Euler Angle X: " + face.getHeadEulerAngleX());
-      Log.v(MANUAL_TESTING_LOG, "face Euler Angle Y: " + face.getHeadEulerAngleY());
-      Log.v(MANUAL_TESTING_LOG, "face Euler Angle Z: " + face.getHeadEulerAngleZ());
+  private void showDialog(){
+    AlertDialog.Builder builder = new AlertDialog.Builder(context);
+    AlertDialog alertDialog = builder
+      .setMessage("AUFWACHEN!")
+      .create();
 
-      // All landmarks
-      int[] landMarkTypes =
-          new int[] {
-            FaceLandmark.MOUTH_BOTTOM,
-            FaceLandmark.MOUTH_RIGHT,
-            FaceLandmark.MOUTH_LEFT,
-            FaceLandmark.RIGHT_EYE,
-            FaceLandmark.LEFT_EYE,
-            FaceLandmark.RIGHT_EAR,
-            FaceLandmark.LEFT_EAR,
-            FaceLandmark.RIGHT_CHEEK,
-            FaceLandmark.LEFT_CHEEK,
-            FaceLandmark.NOSE_BASE
-          };
-      String[] landMarkTypesStrings =
-          new String[] {
-            "MOUTH_BOTTOM",
-            "MOUTH_RIGHT",
-            "MOUTH_LEFT",
-            "RIGHT_EYE",
-            "LEFT_EYE",
-            "RIGHT_EAR",
-            "LEFT_EAR",
-            "RIGHT_CHEEK",
-            "LEFT_CHEEK",
-            "NOSE_BASE"
-          };
-      for (int i = 0; i < landMarkTypes.length; i++) {
-        FaceLandmark landmark = face.getLandmark(landMarkTypes[i]);
-        if (landmark == null) {
-          Log.v(
-              MANUAL_TESTING_LOG,
-              "No landmark of type: " + landMarkTypesStrings[i] + " has been detected");
-        } else {
-          PointF landmarkPosition = landmark.getPosition();
-          String landmarkPositionStr =
-              String.format(Locale.US, "x: %f , y: %f", landmarkPosition.x, landmarkPosition.y);
-          Log.v(
-              MANUAL_TESTING_LOG,
-              "Position for face landmark: "
-                  + landMarkTypesStrings[i]
-                  + " is :"
-                  + landmarkPositionStr);
-        }
-      }
-      Log.v(
-          MANUAL_TESTING_LOG,
-          "face left eye open probability: " + face.getLeftEyeOpenProbability());
-      Log.v(
-          MANUAL_TESTING_LOG,
-          "face right eye open probability: " + face.getRightEyeOpenProbability());
-      Log.v(MANUAL_TESTING_LOG, "face smiling probability: " + face.getSmilingProbability());
-      Log.v(MANUAL_TESTING_LOG, "face tracking id: " + face.getTrackingId());
-    }
+    alertDialog.setButton(AlertDialog.BUTTON_POSITIVE, "OK",
+      (dialog, id) -> alertDialog.dismiss());
+    alertDialog.show();
+  }
+
+  private void sendBeep(){
+    MediaPlayer player = MediaPlayer.create(context,
+            Settings.System.DEFAULT_ALARM_ALERT_URI);
+    player.start();
   }
 
   @Override

@@ -22,6 +22,7 @@ import android.graphics.Paint;
 import android.graphics.PointF;
 import com.google.mlkit.vision.demo.GraphicOverlay;
 import com.google.mlkit.vision.demo.GraphicOverlay.Graphic;
+import com.google.mlkit.vision.demo.java.FaceModel;
 import com.google.mlkit.vision.face.Face;
 import com.google.mlkit.vision.face.FaceContour;
 import com.google.mlkit.vision.face.FaceLandmark;
@@ -59,11 +60,13 @@ public class FaceGraphic extends Graphic {
   private final Paint[] labelPaints;
 
   private volatile Face face;
+  private FaceModel faceModel;
 
-  FaceGraphic(GraphicOverlay overlay, Face face) {
+  FaceGraphic(GraphicOverlay overlay, Face face, FaceModel p_faceModel) {
     super(overlay);
 
     this.face = face;
+    faceModel = p_faceModel;
     final int selectedColor = Color.WHITE;
 
     facePositionPaint = new Paint();
@@ -223,11 +226,25 @@ public class FaceGraphic extends Graphic {
           idPaints[colorID]);
     }
 
+    float diff = faceModel.getDiff();
+    float percentage = FaceModel.THRESHOLD *diff / 100;
+
+    Paint drowsinessPaint = new Paint();
+    drowsinessPaint.setColor(Color.WHITE);
+    drowsinessPaint.setTextSize(32f);
+
+    canvas.drawText(
+            "Drowziness: " + percentage + " %",
+            right,
+            top,
+            drowsinessPaint);
+
     // Draw facial landmarks
     drawFaceLandmark(canvas, FaceLandmark.LEFT_EYE);
     drawFaceLandmark(canvas, FaceLandmark.RIGHT_EYE);
     drawFaceLandmark(canvas, FaceLandmark.LEFT_CHEEK);
     drawFaceLandmark(canvas, FaceLandmark.RIGHT_CHEEK);
+
   }
 
   private void drawFaceLandmark(Canvas canvas, @LandmarkType int landmarkType) {
